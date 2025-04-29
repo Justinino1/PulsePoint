@@ -1,6 +1,8 @@
 # PulsePoint
 
-This template should help get you started developing with Vue 3 in Vite.
+A game made for you to test your clicking skills and maybe crash out trying to win :)
+
+Uses Vue 3
 
 ## Recommended IDE Setup
 
