@@ -1,0 +1,61 @@
+pipeline {
+    agent any
+
+    tools {
+        nodejs 'NodeJS 23' // This must match your Jenkins NodeJS tool name
+    }
+
+    environment {
+        CI = 'true' // Required to suppress interactive prompts in Vue CLI
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                echo 'Cloning repository...'
+                checkout scm
+            }
+        }
+
+        stage('Install Dependencies') {
+            steps {
+                echo 'Installing dependencies...'
+                sh 'npm install'
+            }
+        }
+
+        stage('Run Tests') {
+            steps {
+                echo 'Running tests...'
+                sh 'npm run test'
+            }
+        }
+
+        stage('Build') {
+            steps {
+                echo 'Building Vue.js project...'
+                sh 'npm run build'
+            }
+        }
+
+        // Optional: Archive the build artifacts
+        stage('Archive Build') {
+            steps {
+                echo 'Archiving dist folder...'
+                archiveArtifacts artifacts: 'dist/**', allowEmptyArchive: true
+            }
+        }
+    }
+
+    post {
+        success {
+            echo '✅ Build and tests succeeded.'
+        }
+        failure {
+            echo '❌ Build or tests failed.'
+        }
+        always {
+            echo '🔁 Pipeline finished.'
+        }
+    }
+}
