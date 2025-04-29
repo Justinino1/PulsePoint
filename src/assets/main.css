@@ -15,6 +15,7 @@ body{
   padding-top: 0.6rem;
   padding-bottom: 0.6rem;
   background-color: #FFF0D7;
+  transition: all 0.1s ease-out;
 }
 
 

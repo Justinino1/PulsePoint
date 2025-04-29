@@ -21,7 +21,7 @@ onMounted(() => {
     if (number.value > 0) {
       number.value -= 1;
     }// Decrease by 1 every second
-    
+
   }, 500); //500 mmillisecond interval
 });
 
@@ -29,8 +29,6 @@ onMounted(() => {
 onUnmounted(() => {
   clearInterval(intervalId);
 });
- 
-
 
 
 </script>
@@ -44,7 +42,7 @@ onUnmounted(() => {
 
 
 
-      <p>{{number}}</p>
+      <p>{{ number }}</p>
 
       <button @click="incrementNumber">Click Me</button>
 
@@ -61,5 +59,3 @@ onUnmounted(() => {
 
 
 </template>
-
-
