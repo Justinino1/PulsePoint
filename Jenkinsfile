@@ -23,25 +23,26 @@ pipeline {
             }
         }
 
-       stage('Install Dependencies & Build') {
+       stage('Clean Install & Build') {
             steps {
                 script {
-                    // 🔁 Double-clean to ensure no corrupted modules or residual locks
+                    // Fully remove any leftover modules
                     sh 'rm -rf node_modules package-lock.json'
+
+                    // (Optional) Fix permissions in case of residual locks
+                    sh 'find . -type d -name "node_modules" -exec chmod -R u+w {} + || true'
+
+                    // Clean npm cache
                     sh 'npm cache clean --force'
 
-                    // 🧼 Also ensure workspace is not stale
-                    deleteDir()
-                    checkout scm  // Re-checkout the repo after deleteDir
-
-                    // 🔒 Use CI mode to install dependencies based on lock file
+                    // Clean install dependencies
                     sh 'npm ci'
 
-                    // 🏗️ Build the Vue project
+                    // Build the app
                     sh 'npm run build'
                 }
             }
-}
+        }
 
         stage('Build Docker Image') {
             steps {
