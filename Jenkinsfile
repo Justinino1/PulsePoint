@@ -1,38 +1,42 @@
 pipeline {
     agent {
         docker {
-            image 'node:20'  // Uses official Node.js Docker image
+            image 'node:20'           // Official Node LTS image
+            args  '-u root:root'      // run as root so cleanWs can delete all files
         }
     }
 
+    // ensure workspace is wiped *before* any checkout or build
+    options {
+        cleanWs()                    // Workspace Cleanup Plugin: nukes the entire workspace before checkout
+    }
+
     environment {
-        DOCKER_IMAGE = "ishhod08/pulsepoint"
+        DOCKER_IMAGE       = "ishhod08/pulsepoint"
         DOCKER_CREDENTIALS = "docker-hub-credentials"
     }
 
     stages {
         stage('Clone Repository') {
             steps {
-                git branch: 'main', url: 'https://github.com/Justinino1/PulsePoint.git'
+                checkout scm           // uses the Jenkinsfile’s repo/branch
             }
         }
 
         stage('Install Dependencies & Build') {
             steps {
-                 // 1. Clean previous artifacts
-                sh 'rm -rf node_modules package-lock.json'
-                // 2. Clear npm cache
+                // double-safety: delete any stray files, clear cache, then do a clean install
+                deleteDir()           // remove everything under workspace
                 sh 'npm cache clean --force'
-                // 3. Fresh install using npm ci
-                sh 'npm ci'
-                // 4. Build your Vue app
-                sh 'npm run build'  // creates the dist/ folder
+                sh 'npm ci'           // only installs exactly what's in package-lock.json
+                sh 'npm run build'    // outputs production-ready files to dist/
             }
         }
 
         stage('Build Docker Image') {
             steps {
                 script {
+                    // ensure your Dockerfile picks up the new dist/ folder
                     docker.build("${DOCKER_IMAGE}:latest", '.')
                 }
             }
@@ -42,7 +46,7 @@ pipeline {
             steps {
                 script {
                     docker.withRegistry('https://registry-1.docker.io/v2/', DOCKER_CREDENTIALS) {
-                        echo "Logged in to Docker Hub"
+                        echo "🔐 Logged in to Docker Hub"
                     }
                 }
             }
@@ -61,10 +65,10 @@ pipeline {
         stage('Deploy Container') {
             steps {
                 script {
-                    sh "docker image prune -f"
-                    sh "docker stop vue-app-container || true"
-                    sh "docker rm vue-app-container || true"
-                    sh "docker run -d --name vue-app-container -p 80:80 ${DOCKER_IMAGE}:latest"
+                    sh 'docker image prune -f'
+                    sh 'docker stop pulsepoint-container || true'
+                    sh 'docker rm pulsepoint-container || true'
+                    sh "docker run -d --name pulsepoint-container -p 80:80 ${DOCKER_IMAGE}:latest"
                 }
             }
         }
@@ -72,10 +76,10 @@ pipeline {
 
     post {
         success {
-            echo 'Vue App Deployed Successfully!'
+            echo '✅ Deployment Successful!'
         }
         failure {
-            echo 'Vue App Deployment Failed.'
+            echo '❌ Deployment Failed.'
         }
     }
 }
