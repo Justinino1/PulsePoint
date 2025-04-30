@@ -17,6 +17,15 @@ pipeline {
     }
 
     stages {
+        stage('Clean Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+
+    }
+    
+    stages {
         stage('Clone Repository') {
             steps {
                 checkout scm           // uses the Jenkinsfile’s repo/branch
