@@ -1,18 +1,31 @@
 pipeline {
     agent {
         docker {
-            image 'node:22'          // Official Node LTS image
-            // Running as root often helps with cleanWs and permissions inside the container
+            image 'node:20-alpine'   // More stable LTS version
             args  '-u root:root'
         }
     }
 
     environment {
         DOCKER_IMAGE       = "ishhod08/pulsepoint"
-        DOCKER_CREDENTIALS = "docker-hub-credentials" // Ensure this credential ID exists in Jenkins
+        DOCKER_CREDENTIALS = "docker-hub-credentials"
+        TMPDIR             = "${WORKSPACE}/tmp"  // Explicitly set TMPDIR
     }
 
     stages {
+        stage('Prepare Environment') {
+            steps {
+                // Create and set permissions for temporary directory
+                sh 'mkdir -p ${TMPDIR}'
+                sh 'chmod 777 ${TMPDIR}'
+                
+                // Diagnostic information
+                sh 'node --version'
+                sh 'npm --version'
+                sh 'df -h'
+            }
+        }
+
         stage('Clean Workspace') {
             steps {
                 cleanWs() // Clean the workspace before starting
@@ -21,41 +34,59 @@ pipeline {
 
         stage('Clone Repository') {
             steps {
-                checkout scm        // uses the Jenkinsfile’s repo/branch
+                checkout scm
             }
         }
-
-        // Removed the problematic 'Cleanup TMP' stage
 
         stage('Clean Install & Build') {
             steps {
                 script {
-                    // Clean previous installations forcefully
-                    sh 'rm -rf node_modules package-lock.json'
-                    // Specific cleanup for a potentially problematic module (optional, keep if needed)
-                    sh 'rm -rf node_modules/execa node_modules/.execa-*'
-                    // Clear npm cache forcefully
-                    sh 'npm cache clean --force'
+                    // Simplified cleanup with error handling
+                    sh 'rm -rf node_modules package-lock.json || true'
+                    sh 'npm cache clean --force || true'
+                    
                     // Create a dedicated cache directory
                     sh 'mkdir -p .npm-cache'
-                    // Ensure root owns the workspace contents inside the container for subsequent steps
-                    sh 'chown -R root:root .'
-
-                    // Install dependencies with retries
+                    
+                    // Install dependencies with better practices
                     sh '''#!/bin/bash
-                    for i in {1..3}; do
-                      echo "Attempt $i: Installing dependencies"
-                      # --legacy-peer-deps might be needed depending on npm/project versions
-                      # --cache uses the dedicated cache directory
-                      # --loglevel=verbose provides more detail on failures
-                      npm install --legacy-peer-deps --cache .npm-cache --loglevel=verbose && break
-                      echo "npm install failed. Retrying in 5s..."
-                      sleep 5
-                    done
-                    # Check if installation was successful after loop
+                    # Set NPM configuration
+                    export NPM_CONFIG_CACHE="./.npm-cache"
+                    export NPM_CONFIG_LOGLEVEL="verbose"
+                    
+                    # Try npm ci first (faster and more reliable for CI)
+                    echo "Installing dependencies with npm ci..."
+                    npm ci || {
+                        echo "npm ci failed, falling back to npm install..."
+                        # Fall back to regular install if ci fails
+                        npm install --no-audit --prefer-offline
+                    }
+                    
+                    # Verify installation
                     if [ ! -d "node_modules" ]; then
-                      echo "Failed to install dependencies after 3 attempts."
+                      echo "Failed to install dependencies."
                       exit 1
+                    fi
+                    '''
+                }
+            }
+        }
+
+        stage('Build Vue Application') {
+            steps {
+                script {
+                    // Build the Vue application
+                    sh '''#!/bin/bash
+                    echo "Building Vue application..."
+                    npm run build
+                    
+                    # Verify build output exists
+                    if [ ! -d "dist" ]; then
+                      echo "Build failed - no dist directory found."
+                      exit 1
+                    else
+                      echo "Build succeeded. Contents of dist directory:"
+                      ls -la dist
                     fi
                     '''
                 }
@@ -65,7 +96,6 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    // Build the Docker image from the Dockerfile in the workspace root
                     docker.build("${DOCKER_IMAGE}:latest", '.')
                 }
             }
@@ -74,11 +104,7 @@ pipeline {
         stage('Login to Docker Hub') {
             steps {
                 script {
-                    // Authenticate with Docker Hub using defined credentials
-                    // Using v2 endpoint is standard practice
                     docker.withRegistry('https://registry-1.docker.io/v2/', DOCKER_CREDENTIALS) {
-                         // This echo runs after successful credential loading, not necessarily after login itself
-                         // Docker login happens implicitly when withRegistry block is entered with credentials
                          echo "🔐 Credential loaded for Docker Hub"
                     }
                 }
@@ -88,9 +114,7 @@ pipeline {
         stage('Push Image to Docker Hub') {
             steps {
                 script {
-                    // Re-authenticate within the push context and push the image
-                    // Using v1 or v2 endpoint should work, stick to one if possible (v2 preferred)
-                    docker.withRegistry('https://index.docker.io/v1/', DOCKER_CREDENTIALS) {
+                    docker.withRegistry('https://registry-1.docker.io/v2/', DOCKER_CREDENTIALS) {
                        docker.image("${DOCKER_IMAGE}:latest").push()
                     }
                 }
@@ -102,20 +126,16 @@ pipeline {
                 script {
                     // Clean up old docker images to free space
                     sh 'docker image prune -f'
-                    // Stop and remove the old container if it exists
-                    sh 'docker stop pulsepoint-container || true' // || true prevents failure if container doesn't exist
-                    sh 'docker rm pulsepoint-container || true'   // || true prevents failure if container doesn't exist
-                    // Run the new container from the latest image
-                    // -d: detached mode, --name: container name, -p 80:80: map host port 80 to container port 80
+                    sh 'docker stop pulsepoint-container || true'
+                    sh 'docker rm pulsepoint-container || true'
                     sh "docker run -d --name pulsepoint-container -p 80:80 ${DOCKER_IMAGE}:latest"
                 }
             }
         }
-    } // End of stages block
+    }
 
     post {
         always {
-            // Clean the workspace after the build finishes, regardless of status
             cleanWs()
         }
         success {
@@ -124,6 +144,5 @@ pipeline {
         failure {
             echo '❌ Deployment Failed.'
         }
-        // You could add other conditions like 'aborted', 'unstable' etc.
     }
-} // End of pipeline block
+}
