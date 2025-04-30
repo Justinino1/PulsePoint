@@ -26,22 +26,21 @@ pipeline {
         stage('Clean Install & Build') {
             steps {
                 script {
-                    // Remove and fully reset node_modules and npm cache
                     sh 'rm -rf node_modules package-lock.json'
-                    sh 'mkdir -p .npm-cache'
+                    sh 'rm -rf node_modules/execa node_modules/.execa-*'
                     sh 'npm cache clean --force'
-
-                    // Fix permissions (just in case)
+                    sh 'mkdir -p .npm-cache'
                     sh 'chown -R root:root .'
 
-                    // Retry npm install (sometimes ENOTEMPTY happens due to timing)
-                    sh '''
-                        for i in 1 2 3; do
-                            npm install --legacy-peer-deps --cache .npm-cache --loglevel=verbose && break
-                            echo "npm install failed, retrying in 3s..."
-                            sleep 3
-                        done
+                    sh '''#!/bin/bash
+                    for i in {1..3}; do
+                      echo "Attempt $i: Installing dependencies"
+                      npm install --legacy-peer-deps --cache .npm-cache --loglevel=verbose && break
+                      echo "npm install failed. Retrying in 5s..."
+                      sleep 5
+                    done
                     '''
+
                 }
             }
         }
