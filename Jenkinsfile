@@ -26,23 +26,21 @@ pipeline {
        stage('Clean Install & Build') {
             steps {
                 script {
-                    // Fully remove any leftover modules
+                    // Fully remove any leftover modules and lock file
                     sh 'rm -rf node_modules package-lock.json'
 
-                    // (Optional) Fix permissions in case of residual locks
-                    sh 'find . -type d -name "node_modules" -exec chmod -R u+w {} + || true'
-
-                    // Clean npm cache
+                    // Clean npm cache to avoid corrupted packages
                     sh 'npm cache clean --force'
 
-                    // Clean install dependencies
-                    sh 'npm ci'
+                    // Fix permissions just in case
+                    sh 'chown -R root:root .'
 
-                    // Build the app
-                    sh 'npm run build'
+                    // Run npm install with verbose logging for debugging
+                    sh 'npm install --loglevel=verbose'
                 }
             }
         }
+
 
         stage('Build Docker Image') {
             steps {
