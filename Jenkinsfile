@@ -1,7 +1,7 @@
 pipeline {
     agent {
         docker {
-            image 'node:20'           // Official Node LTS image
+            image 'node:22'           // Official Node LTS image
             args  '-u root:root'      // run as root so cleanWs can delete all files
         }
     }
@@ -23,15 +23,25 @@ pipeline {
             }
         }
 
-        stage('Install Dependencies & Build') {
+       stage('Install Dependencies & Build') {
             steps {
-                // double-safety: delete any stray files, clear cache, then do a clean install
-                deleteDir()           // remove everything under workspace
-                sh 'npm cache clean --force'
-                sh 'npm ci'           // only installs exactly what's in package-lock.json
-                sh 'npm run build'    // outputs production-ready files to dist/
+                script {
+                    // 🔁 Double-clean to ensure no corrupted modules or residual locks
+                    sh 'rm -rf node_modules package-lock.json'
+                    sh 'npm cache clean --force'
+
+                    // 🧼 Also ensure workspace is not stale
+                    deleteDir()
+                    checkout scm  // Re-checkout the repo after deleteDir
+
+                    // 🔒 Use CI mode to install dependencies based on lock file
+                    sh 'npm ci'
+
+                    // 🏗️ Build the Vue project
+                    sh 'npm run build'
+                }
             }
-        }
+}
 
         stage('Build Docker Image') {
             steps {
