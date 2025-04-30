@@ -1,61 +1,71 @@
 pipeline {
     agent any
 
-    tools {
-        nodejs 'NodeJS 23' // This must match your Jenkins NodeJS tool name
-    }
-
     environment {
-        CI = 'true' // Required to suppress interactive prompts in Vue CLI
+        DOCKER_IMAGE = "ishhod08/pulsepoint"
+        DOCKER_CREDENTIALS = "docker-hub-credentials"
     }
 
     stages {
-        stage('Checkout') {
+        stage('Clone Repository') {
             steps {
-                echo 'Cloning repository...'
-                checkout scm
+                git branch: 'main', url: 'https://github.com/Justinino1/PulsePoint.git'
             }
         }
 
-        stage('Install Dependencies') {
+        stage('Install Dependencies & Build') {
             steps {
-                echo 'Installing dependencies...'
                 sh 'npm install'
+                sh 'npm run build'  // creates the dist/ folder
             }
         }
 
-        stage('Run Tests') {
+        stage('Build Docker Image') {
             steps {
-                echo 'Running tests...'
-                sh 'npm run test'
+                script {
+                    docker.build("${DOCKER_IMAGE}:latest", '.')
+                }
             }
         }
 
-        stage('Build') {
+        stage('Login to Docker Hub') {
             steps {
-                echo 'Building Vue.js project...'
-                sh 'npm run build'
+                script {
+                    docker.withRegistry('https://registry-1.docker.io/v2/', DOCKER_CREDENTIALS) {
+                        echo "Logged in to Docker Hub"
+                    }
+                }
             }
         }
 
-        // Optional: Archive the build artifacts
-        stage('Archive Build') {
+        stage('Push Image to Docker Hub') {
             steps {
-                echo 'Archiving dist folder...'
-                archiveArtifacts artifacts: 'dist/**', allowEmptyArchive: true
+                script {
+                    docker.withRegistry('https://index.docker.io/v1/', DOCKER_CREDENTIALS) {
+                        docker.image("${DOCKER_IMAGE}:latest").push()
+                    }
+                }
+            }
+        }
+
+        stage('Deploy Container') {
+            steps {
+                script {
+                    sh "docker image prune -f"
+                    sh "docker stop vue-app-container || true"
+                    sh "docker rm vue-app-container || true"
+                    sh "docker run -d --name vue-app-container -p 80:80 ${DOCKER_IMAGE}:latest"
+                }
             }
         }
     }
 
     post {
         success {
-            echo '✅ Build and tests succeeded.'
+            echo 'Vue App Deployed Successfully!'
         }
         failure {
-            echo '❌ Build or tests failed.'
-        }
-        always {
-            echo '🔁 Pipeline finished.'
+            echo 'Vue App Deployment Failed.'
         }
     }
 }
