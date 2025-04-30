@@ -22,6 +22,12 @@ pipeline {
             steps {
                 checkout scm           // uses the Jenkinsfile’s repo/branch
             }
+        }   
+
+        stage('Cleanup TMP') {
+            steps {
+                sh 'rm -rf /var/lib/jenkins/workspace/Pipeline-1@tmp || true'
+            }
         }
 
         stage('Clean Install & Build') {
