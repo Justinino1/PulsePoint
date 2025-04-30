@@ -15,30 +15,57 @@ pipeline {
     stages {
         stage('Clean Workspace') {
             steps {
-                echo "Cleaning the workspace"
                 cleanWs() // Clean the workspace before starting
             }
         }
 
         stage('Clone Repository') {
             steps {
-                echo "Cloning the code"
-                // Uses the Jenkinsfile’s repo/branch configured in job settings
-                checkout scm
+                checkout scm        // uses the Jenkinsfile’s repo/branch
             }
         }
 
-        // Removed the 'Cleanup TMP' stage (as previously discussed)
+        // Removed the problematic 'Cleanup TMP' stage
 
-        // REMOVED: The 'Clean Install & Build' stage is removed entirely
-        // because you are assuming node_modules is already present after cloning.
+        stage('Clean Install & Build') {
+            steps {
+                script {
+                    // Clean previous installations forcefully
+                    sh 'rm -rf node_modules package-lock.json'
+                    // Specific cleanup for a potentially problematic module (optional, keep if needed)
+                    sh 'rm -rf node_modules/execa node_modules/.execa-*'
+                    // Clear npm cache forcefully
+                    sh 'npm cache clean --force'
+                    // Create a dedicated cache directory
+                    sh 'mkdir -p .npm-cache'
+                    // Ensure root owns the workspace contents inside the container for subsequent steps
+                    sh 'chown -R root:root .'
+
+                    // Install dependencies with retries
+                    sh '''#!/bin/bash
+                    for i in {1..3}; do
+                      echo "Attempt $i: Installing dependencies"
+                      # --legacy-peer-deps might be needed depending on npm/project versions
+                      # --cache uses the dedicated cache directory
+                      # --loglevel=verbose provides more detail on failures
+                      npm install --legacy-peer-deps --cache .npm-cache --loglevel=verbose && break
+                      echo "npm install failed. Retrying in 5s..."
+                      sleep 5
+                    done
+                    # Check if installation was successful after loop
+                    if [ ! -d "node_modules" ]; then
+                      echo "Failed to install dependencies after 3 attempts."
+                      exit 1
+                    fi
+                    '''
+                }
+            }
+        }
 
         stage('Build Docker Image') {
             steps {
                 script {
-                    echo "Building the Docker image"
-                    // Build the Docker image from the Dockerfile in the workspace root.
-                    // This step will now rely on node_modules being present from the clone.
+                    // Build the Docker image from the Dockerfile in the workspace root
                     docker.build("${DOCKER_IMAGE}:latest", '.')
                 }
             }
@@ -47,9 +74,11 @@ pipeline {
         stage('Login to Docker Hub') {
             steps {
                 script {
-                    echo "Logging in to Docker Hub"
                     // Authenticate with Docker Hub using defined credentials
-                    docker.withRegistry('https://registry-1.docker.docker.io/v2/', DOCKER_CREDENTIALS) {
+                    // Using v2 endpoint is standard practice
+                    docker.withRegistry('https://registry-1.docker.io/v2/', DOCKER_CREDENTIALS) {
+                         // This echo runs after successful credential loading, not necessarily after login itself
+                         // Docker login happens implicitly when withRegistry block is entered with credentials
                          echo "🔐 Credential loaded for Docker Hub"
                     }
                 }
@@ -59,8 +88,8 @@ pipeline {
         stage('Push Image to Docker Hub') {
             steps {
                 script {
-                     echo "Pushing image to Docker Hub"
-                    // Authenticate within the push context and push the image
+                    // Re-authenticate within the push context and push the image
+                    // Using v1 or v2 endpoint should work, stick to one if possible (v2 preferred)
                     docker.withRegistry('https://index.docker.io/v1/', DOCKER_CREDENTIALS) {
                        docker.image("${DOCKER_IMAGE}:latest").push()
                     }
@@ -71,7 +100,6 @@ pipeline {
         stage('Deploy Container') {
             steps {
                 script {
-                    echo "Deploying the container"
                     // Clean up old docker images to free space
                     sh 'docker image prune -f'
                     // Stop and remove the old container if it exists
@@ -88,18 +116,14 @@ pipeline {
     post {
         always {
             // Clean the workspace after the build finishes, regardless of status
-            echo "Cleaning workspace after build"
             cleanWs()
         }
         success {
-            echo '✅ Pipeline Succeeded!'
-        }
-        success {
-            echo '✅ Deployment Successful!' // Duplicate, keep one or refine
+            echo '✅ Deployment Successful!'
         }
         failure {
-            echo '❌ Pipeline Failed.'
+            echo '❌ Deployment Failed.'
         }
-        // Add other post conditions if needed (e.g., aborted)
+        // You could add other conditions like 'aborted', 'unstable' etc.
     }
-}
+} // End of pipeline block
