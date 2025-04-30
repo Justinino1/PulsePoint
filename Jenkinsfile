@@ -1,5 +1,9 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'node:18'  // Uses official Node.js Docker image
+        }
+    }
 
     environment {
         DOCKER_IMAGE = "ishhod08/pulsepoint"
