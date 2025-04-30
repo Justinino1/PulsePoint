@@ -19,9 +19,13 @@ pipeline {
 
         stage('Install Dependencies & Build') {
             steps {
+                 // 1. Clean previous artifacts
                 sh 'rm -rf node_modules package-lock.json'
+                // 2. Clear npm cache
                 sh 'npm cache clean --force'
-                sh 'npm install'
+                // 3. Fresh install using npm ci
+                sh 'npm ci'
+                // 4. Build your Vue app
                 sh 'npm run build'  // creates the dist/ folder
             }
         }
