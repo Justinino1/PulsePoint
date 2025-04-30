@@ -6,11 +6,6 @@ pipeline {
         }
     }
 
-    // ensure workspace is wiped *before* any checkout or build
-    options {
-        cleanWs()                    // Workspace Cleanup Plugin: nukes the entire workspace before checkout
-    }
-
     environment {
         DOCKER_IMAGE       = "ishhod08/pulsepoint"
         DOCKER_CREDENTIALS = "docker-hub-credentials"
@@ -23,9 +18,6 @@ pipeline {
             }
         }
 
-    }
-    
-    stages {
         stage('Clone Repository') {
             steps {
                 checkout scm           // uses the Jenkinsfile’s repo/branch
@@ -49,16 +41,13 @@ pipeline {
                       sleep 5
                     done
                     '''
-
                 }
             }
         }
 
-
         stage('Build Docker Image') {
             steps {
                 script {
-                    // ensure your Dockerfile picks up the new dist/ folder
                     docker.build("${DOCKER_IMAGE}:latest", '.')
                 }
             }
@@ -97,6 +86,9 @@ pipeline {
     }
 
     post {
+        always {
+            cleanWs()
+        }
         success {
             echo '✅ Deployment Successful!'
         }
