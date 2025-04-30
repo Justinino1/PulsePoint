@@ -23,20 +23,25 @@ pipeline {
             }
         }
 
-       stage('Clean Install & Build') {
+        stage('Clean Install & Build') {
             steps {
                 script {
-                    // Fully remove any leftover modules and lock file
+                    // Remove and fully reset node_modules and npm cache
                     sh 'rm -rf node_modules package-lock.json'
-
-                    // Clean npm cache to avoid corrupted packages
+                    sh 'mkdir -p .npm-cache'
                     sh 'npm cache clean --force'
 
-                    // Fix permissions just in case
+                    // Fix permissions (just in case)
                     sh 'chown -R root:root .'
 
-                    // Run npm install with verbose logging for debugging
-                    sh 'npm install --loglevel=verbose'
+                    // Retry npm install (sometimes ENOTEMPTY happens due to timing)
+                    sh '''
+                        for i in 1 2 3; do
+                            npm install --legacy-peer-deps --cache .npm-cache --loglevel=verbose && break
+                            echo "npm install failed, retrying in 3s..."
+                            sleep 3
+                        done
+                    '''
                 }
             }
         }
