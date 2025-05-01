@@ -1,32 +1,34 @@
-# 1) Build stage
-FROM node:22 AS build
+# 1️⃣ Build Stage
+FROM node:22-alpine AS build
+
+# Set working directory
 WORKDIR /app
 
-# Set the npm cache to a writable directory (instead of the default root-owned one)
+# Set npm cache to writable location
 ENV NPM_CONFIG_CACHE=/tmp/.npm
+
+# Create writable npm cache
 RUN mkdir -p /tmp/.npm
 
-# Copy package.json and package-lock.json first to install dependencies early
-COPY package*.json ./
+# Install dependencies early for caching efficiency
+COPY package.json package-lock.json ./
+RUN npm ci --prefer-offline --no-audit
 
-# Install dependencies using npm ci (which needs a valid package-lock.json)
-RUN npm ci
-
-# Copy the rest of the application and build it
+# Copy the rest of the source and build
 COPY . .
 RUN npm run build
 
-# 2) Production stage
+# 2️⃣ Production Stage with Nginx
 FROM nginx:stable-alpine
 
-# Remove default site content from nginx
+# Clean default Nginx content
 RUN rm -rf /usr/share/nginx/html/*
 
-# Copy the built Vue app from the build stage
+# Copy built files from build stage
 COPY --from=build /app/dist /usr/share/nginx/html
 
-# Expose port 80 for the nginx server
+# Expose port
 EXPOSE 80
 
-# Keep nginx running in the foreground
+# Run nginx in foreground
 CMD ["nginx", "-g", "daemon off;"]
