@@ -37,23 +37,22 @@ pipeline {
                     echo "Running steps inside the Docker container as user 111:113..."
 
                     // --- Detailed Workspace Debugging Steps ---
-                    // Output from these steps is CRUCIAL if issues persist
-                    // Removed incorrect markers
-                    sh "echo 'Current directory inside container: $(pwd)'"
-                    sh "echo 'Listing contents of the workspace root:'"
+                    // Corrected quoting for shell commands with '$' or '()'
+                    sh 'echo "Current directory inside container: $(pwd)"'
+                    sh 'echo "Listing contents of the workspace root:"'
                     sh 'ls -la /var/lib/jenkins/workspace/'
-                    sh "echo 'Listing contents of the specific pipeline workspace:'"
+                    sh 'echo "Listing contents of the specific pipeline workspace:"'
                     sh 'ls -la /var/lib/jenkins/workspace/Pipeline-1'
-                    sh "echo 'Listing contents of the @tmp directory (may not exist initially):'"
+                    sh 'echo "Listing contents of the @tmp directory (may not exist initially):"'
                     sh 'ls -la /var/lib/jenkins/workspace/Pipeline-1@tmp || true'
-                    sh "echo 'Checking permissions on the pipeline workspace:'"
+                    sh 'echo "Checking permissions on the pipeline workspace:"'
                     sh 'stat -c "%a %n" /var/lib/jenkins/workspace/Pipeline-1'
-                    sh "echo 'Checking permissions on the @tmp directory (if it exists):'"
+                    sh 'echo "Checking permissions on the @tmp directory (if it exists):"'
                     sh 'stat -c "%a %n" /var/lib/jenkins/workspace/Pipeline-1@tmp || true'
-                    sh "echo 'PATH inside container: $PATH'"
-                    sh "echo 'Checking if sh is found:'"
+                    sh 'echo "PATH inside container: $PATH"'
+                    sh 'echo "Checking if sh is found:'"
                     sh 'which sh || echo "sh not found in PATH"'
-                    sh "echo '--- End Detailed Workspace Debugging Steps ---'"
+                    sh 'echo "--- End Detailed Workspace Debugging Steps ---"'
 
                     // Prepare Environment (now inside docker agent)
                     sh 'node --version'
