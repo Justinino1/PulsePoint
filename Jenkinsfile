@@ -43,7 +43,7 @@ pipeline {
 
                     // Clean Install & Build
                     echo "Starting Clean Install & Build..."
-                    sh '''#!/bin/bash
+                    sh '''
                     # Set npm cache to writable location
                     export NPM_CONFIG_CACHE=/tmp/.npm
                     mkdir -p /tmp/.npm
@@ -67,7 +67,7 @@ pipeline {
 
                     // Build Vue Application
                     echo "Starting Vue application build..."
-                    sh '''#!/bin/bash
+                    sh '''
                     # Build the Vue application
                     npm run build
 
@@ -107,4 +107,25 @@ pipeline {
             steps {
                 script {
                     echo "Starting container deployment..."
-                    sh 'echo "Pruning
+                    sh 'echo "Pruning old docker images on deployment agent..."'
+                    sh 'docker image prune -f'
+                    sh 'echo "Stopping and removing old container..."'
+                    sh 'docker stop pulsepoint-container || true'
+                    sh 'docker rm pulsepoint-container || true'
+                    sh 'echo "Running new container..."'
+                    sh "docker run -d --name pulsepoint-container -p 80:80 ${DOCKER_IMAGE}:latest"
+                    sh 'echo "Deployment command executed."'
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo '✅ Deployment Successful!'
+        }
+        failure {
+            echo '❌ Deployment Failed.'
+        }
+    }
+}
