@@ -38,6 +38,7 @@ pipeline {
 
                     // --- Detailed Workspace Debugging Steps ---
                     // Corrected quoting for shell commands with '$' or '()'
+                    // Using single quotes around the entire shell command string
                     sh 'echo "Current directory inside container: $(pwd)"'
                     sh 'echo "Listing contents of the workspace root:"'
                     sh 'ls -la /var/lib/jenkins/workspace/'
@@ -50,7 +51,7 @@ pipeline {
                     sh 'echo "Checking permissions on the @tmp directory (if it exists):"'
                     sh 'stat -c "%a %n" /var/lib/jenkins/workspace/Pipeline-1@tmp || true'
                     sh 'echo "PATH inside container: $PATH"'
-                    sh 'echo "Checking if sh is found:'"
+                    sh 'echo "Checking if sh is found:"'
                     sh 'which sh || echo "sh not found in PATH"'
                     sh 'echo "--- End Detailed Workspace Debugging Steps ---"'
 
