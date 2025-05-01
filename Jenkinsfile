@@ -25,6 +25,7 @@ pipeline {
                 docker {
                     image 'node:20-alpine' // Using the stable LTS Alpine version
                     // IMPORTANT: Run as the same user ID/Group ID as the Jenkins user on the host (UID 111, GID 113 from your logs)
+                    // This should fix the "script.sh.copy: not found" permission error
                     args '-u 111:113'
 
                     // Commented out the optional NPM cache mount for now
@@ -36,34 +37,36 @@ pipeline {
                     echo "Running steps inside the Docker container as user 111:113..."
 
                     // --- Detailed Workspace Debugging Steps ---
-                    // You can keep these for confirmation, or remove them if the build succeeds
-                    sh 'echo "Current directory inside container: $(pwd)"' [cite: 2]
-                    sh 'echo "Listing contents of the workspace root:"'
-                    sh 'ls -la /var/lib/jenkins/workspace/' [cite: 3]
-                    sh 'echo "Listing contents of the specific pipeline workspace:"'
-                    sh 'ls -la /var/lib/jenkins/workspace/Pipeline-1' [cite: 4, 5, 6, 7, 8, 9]
-                    sh 'echo "Listing contents of the @tmp directory (may not exist initially):"'
-                    sh 'ls -la /var/lib/jenkins/workspace/Pipeline-1@tmp || true' [cite: 10, 11, 12]
-                    sh 'echo "Checking permissions on the pipeline workspace:"'
-                    sh 'stat -c "%a %n" /var/lib/jenkins/workspace/Pipeline-1' [cite: 12]
-                    sh 'echo "Checking permissions on the @tmp directory (if it exists):"'
-                    sh 'stat -c "%a %n" /var/lib/jenkins/workspace/Pipeline-1@tmp || true' [cite: 12]
-                    sh 'echo "PATH inside container: $PATH"' [cite: 12]
-                    sh 'echo "Checking if sh is found:"'
-                    sh 'which sh || echo "sh not found in PATH"' [cite: 12]
-                    sh 'echo "--- End Detailed Workspace Debugging Steps ---"'
+                    // Output from these steps is CRUCIAL if issues persist
+                    // Removed incorrect markers
+                    sh "echo 'Current directory inside container: $(pwd)'"
+                    sh "echo 'Listing contents of the workspace root:'"
+                    sh 'ls -la /var/lib/jenkins/workspace/'
+                    sh "echo 'Listing contents of the specific pipeline workspace:'"
+                    sh 'ls -la /var/lib/jenkins/workspace/Pipeline-1'
+                    sh "echo 'Listing contents of the @tmp directory (may not exist initially):'"
+                    sh 'ls -la /var/lib/jenkins/workspace/Pipeline-1@tmp || true'
+                    sh "echo 'Checking permissions on the pipeline workspace:'"
+                    sh 'stat -c "%a %n" /var/lib/jenkins/workspace/Pipeline-1'
+                    sh "echo 'Checking permissions on the @tmp directory (if it exists):'"
+                    sh 'stat -c "%a %n" /var/lib/jenkins/workspace/Pipeline-1@tmp || true'
+                    sh "echo 'PATH inside container: $PATH'"
+                    sh "echo 'Checking if sh is found:'"
+                    sh 'which sh || echo "sh not found in PATH"'
+                    sh "echo '--- End Detailed Workspace Debugging Steps ---'"
 
                     // Prepare Environment (now inside docker agent)
-                    sh 'node --version' [cite: 12]
-                    sh 'npm --version' [cite: 13]
-                    sh 'df -h' [cite: 13, 14, 15, 16, 17, 18]
+                    sh 'node --version'
+                    sh 'npm --version'
+                    sh 'df -h'
 
                     // Clone Repository (now inside docker agent - uses the workspace mounted by Jenkins)
-                    echo "Cloning repository..." [cite: 19]
+                    echo "Cloning repository..."
                     checkout scm
 
                     // Clean Install & Build (now inside docker agent)
-                    echo "Starting Clean Install & Build..." [cite: 21]
+                    echo "Starting Clean Install & Build..."
+                    // Use triple single quotes for multi-line script
                     sh '''#!/bin/bash
                     # Simplified cleanup with error handling - runs inside container
                     echo "Cleaning node_modules and package-lock.json..."
@@ -96,6 +99,7 @@ pipeline {
 
                     // Build Vue Application (now inside docker agent)
                     echo "Starting Vue application build..."
+                    // Use triple single quotes for multi-line script
                     sh '''#!/bin/bash
                     # Build the Vue application
                     echo "Building Vue application..."
