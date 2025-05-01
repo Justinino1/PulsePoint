@@ -23,7 +23,7 @@ pipeline {
             // This stage uses the Docker agent for all subsequent steps
             agent {
                 docker {
-                    image 'node:20-alpine' // Using the stable LTS Alpine version
+                    image 'node:20-slim' // Using the stable LTS Alpine version
                     // IMPORTANT: Run as the same user ID/Group ID as the Jenkins user on the host (UID 111, GID 113 from your logs)
                     // This should fix the "script.sh.copy: not found" permission error
                     args '-u 111:113'
