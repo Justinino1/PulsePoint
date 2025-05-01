@@ -27,7 +27,9 @@ pipeline {
                     // Running as root:root is common in containers for build steps,
                     // but be mindful of file permissions on the host if using bind mounts.
                     // args '-u root:root' // Uncomment if specific user is needed
-                    args '-v $HOME/.npm:/root/.npm' // Example: Cache NPM packages across builds (optional)
+
+                    // Commented out the optional NPM cache mount for now to isolate the 'command not found' error
+                    // args '-v $HOME/.npm:/root/.npm' // Example: Cache NPM packages across builds (optional)
                 }
             }
             steps {
@@ -35,7 +37,7 @@ pipeline {
                     echo "Running steps inside the Docker container..."
 
                     // --- Debugging Steps for Exit Code 127 ---
-                    // These help verify the environment inside the container
+                    // Output from these steps is CRUCIAL to diagnose 'command not found'
                     sh 'echo "Current directory inside container: $(pwd)"'
                     sh 'echo "Contents of working directory:"'
                     sh 'ls -la .'
@@ -49,7 +51,7 @@ pipeline {
                     // Prepare Environment (now inside docker agent)
                     sh 'node --version'
                     sh 'npm --version'
-                    sh 'df -h'
+                    sh 'df -h' // Keep df -h, but the /root/.npm error should be gone now
 
                     // Clone Repository (now inside docker agent - uses the workspace mounted by Jenkins)
                     echo "Cloning repository..."
@@ -63,8 +65,7 @@ pipeline {
                     rm -rf node_modules package-lock.json || true
                     # npm cache clean --force || true # Generally not recommended unless cache is truly corrupt
 
-                    # Create a dedicated cache directory within the workspace
-                    # This is less necessary if you use the volume mount for .npm above
+                    # If you uncommented the npm cache mount above, you don't need this:
                     # mkdir -p .npm-cache
                     # export NPM_CONFIG_CACHE="./.npm-cache"
 
@@ -134,7 +135,7 @@ pipeline {
              // This stage could potentially run on a different agent if deployment
              // targets a different host, or keep 'agent none' if deploying
              // from the Jenkins controller itself (less common).
-             // For simplicity, let's assume it runs on a standard agent or controller.
+             // For simplicity, let's assume it runs on a standard agent or controller with docker installed.
              agent any // Or agent { label 'your-deployment-agent' }
              steps {
                 script {
